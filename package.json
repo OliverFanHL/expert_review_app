@@ -1,0 +1,12 @@
+{
+  "name": "jev-cad-expert-review",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/check-package.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "db:init": "node scripts/init-db.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": { "@neondatabase/serverless": "^1.0.0" }
+}

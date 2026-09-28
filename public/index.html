@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>CAD expert review</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="mark" aria-hidden="true">◈</div>
+      <div><p class="eyebrow">JEV · MECHANICAL CAD STUDY</p><h1>Expert relevance review</h1></div>
+      <span class="header-note">Blinded, paired CAD assessment</span>
+    </div>
+  </header>
+  <main>
+    <section id="login" class="login-card">
+      <p class="step">Secure review access</p>
+      <h2>Continue your assessment</h2>
+      <p>Enter the access code assigned to you. Your ratings are saved after each selection and can be resumed from any device.</p>
+      <form id="login-form">
+        <label for="access-code">Access code</label>
+        <div class="login-row"><input id="access-code" type="password" autocomplete="off" required><button type="submit" class="primary">Open review</button></div>
+      </form>
+      <p class="privacy-note">Part classes, filenames, model predictions, and similarity scores are hidden during grading.</p>
+    </section>
+
+    <section id="review" hidden>
+      <div class="review-top">
+        <div><p id="role-label" class="eyebrow"></p><h2 id="review-title">Compare the two parts</h2></div>
+        <button id="sign-out" class="quiet">Leave review</button>
+      </div>
+      <div class="progress-box">
+        <div class="progress-head"><strong id="progress-text"></strong><span id="save-status" role="status" aria-live="polite">All saved</span></div>
+        <div class="progress-track"><div id="progress-fill"></div></div>
+      </div>
+      <div id="review-content">
+        <div class="instruction">
+          <strong>Question</strong> Could the candidate be useful in place of, or closely related to, the query part? Judge geometry, interfaces, and mechanical role together. The score describes this pair, not its source-category match.
+        </div>
+        <div class="parts">
+          <figure><div class="image-frame"><img id="query-image" alt="Rendered query CAD part"></div><figcaption>Query part <span id="query-count"></span></figcaption></figure>
+          <div class="compare-symbol" aria-hidden="true">↔</div>
+          <figure><div class="image-frame"><img id="candidate-image" alt="Rendered candidate CAD part"></div><figcaption>Candidate part</figcaption></figure>
+        </div>
+        <div class="view-controls"><button id="alternate-view" class="secondary">Show alternate view</button><span>Both views are rendered from the original STEP geometry.</span></div>
+        <p id="image-error" class="error" hidden>A CAD image is unavailable. Do not grade this pair; contact the study coordinator.</p>
+        <div id="prior-ratings" class="prior-ratings" hidden></div>
+        <fieldset id="grade-fieldset"><legend>Engineering relevance</legend><div id="grade-options" class="grade-grid"></div></fieldset>
+        <label class="note-label" for="evidence">Observations or decisive features <span>(optional)</span></label>
+        <textarea id="evidence" rows="2" maxlength="1000" placeholder="For example: bore and mounting interface align, but the outer profile differs."></textarea>
+        <div class="actions">
+          <button id="previous" class="secondary">← Previous</button>
+          <button id="next-unrated" class="secondary">Next unrated →</button>
+          <button id="edit-rating" class="secondary" hidden>Edit saved rating</button>
+        </div>
+        <p class="keyboard-tip">Use keys 0–3 to grade; left and right arrows move between pairs when the note field is not active.</p>
+      </div>
+      <div id="all-done" class="done-card" hidden><h3>All available pairs are rated</h3><p>Your work is saved. You can revisit pairs or export a complete review file.</p></div>
+      <div class="export-box"><span>Export becomes available when the review is complete.</span><button id="export-own" class="secondary" disabled>Download annotation CSV</button></div>
+    </section>
+
+    <section id="admin" class="login-card" hidden>
+      <p class="eyebrow">Study export</p><h2>Annotation status</h2><p id="admin-status"></p>
+      <div class="admin-actions"><button data-export="rater_a">Rater A CSV</button><button data-export="rater_b">Rater B CSV</button><button data-export="adjudication">Adjudication CSV</button></div>
+      <p>Exports retain the frozen pair order and the exact columns expected by the study finalizer.</p>
+      <button id="admin-sign-out" class="quiet">Leave</button>
+    </section>
+    <p id="global-error" class="error" role="alert" hidden></p>
+  </main>
+  <dialog id="zoom-dialog"><button id="close-zoom" class="zoom-close" aria-label="Close enlarged image">×</button><img id="zoom-image" alt="Enlarged CAD rendering"></dialog>
+</body>
+</html>

@@ -1,0 +1,270 @@
+const $ = id => document.getElementById(id);
+let token = sessionStorage.getItem('cad-review-token') || '';
+let session = null;
+let index = 0;
+let saving = false;
+let editMode = false;
+let viewSuffix = '';
+const imagesLoaded = { 'query-image': false, 'candidate-image': false };
+
+function imagesReady() { return imagesLoaded['query-image'] && imagesLoaded['candidate-image']; }
+
+function refreshGradeButtons() {
+  if (!session?.pairs.length) return;
+  const saved = Boolean(session.ratings[session.pairs[index].pair_id]);
+  for (const button of $('grade-options').children)
+    button.disabled = saving || session.locked || !imagesReady() || (saved && !editMode);
+}
+
+function showImages(pair) {
+  imagesLoaded['query-image'] = imagesLoaded['candidate-image'] = false;
+  $('image-error').hidden = true;
+  $('query-image').src = `/renders/${pair.query_id}${viewSuffix}.webp`;
+  $('candidate-image').src = `/renders/${pair.candidate_id}${viewSuffix}.webp`;
+  $('alternate-view').textContent = viewSuffix ? 'Show first view' : 'Show alternate view';
+  for (const button of $('grade-options').children) button.disabled = true;
+}
+
+function error(message) {
+  $('global-error').textContent = message;
+  $('global-error').hidden = !message;
+}
+
+async function api(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+    cache: 'no-store',
+  });
+  const value = await response.json();
+  if (!response.ok) throw new Error(value.error || `Request failed (${response.status})`);
+  return value;
+}
+
+function roleName(role) {
+  return { rater_a: 'Independent expert A', rater_b: 'Independent expert B',
+    adjudication: 'Disagreement adjudication' }[role] || 'Review';
+}
+
+function firstUnrated(start = 0) {
+  if (!session?.pairs.length) return -1;
+  for (let offset = 0; offset < session.pairs.length; offset++) {
+    const i = (start + offset) % session.pairs.length;
+    if (!session.ratings[session.pairs[i].pair_id]) return i;
+  }
+  return -1;
+}
+
+function nextUnratedAfter(current) {
+  if (!session?.pairs.length) return -1;
+  for (let offset = 1; offset < session.pairs.length; offset++) {
+    const i = (current + offset) % session.pairs.length;
+    if (!session.ratings[session.pairs[i].pair_id]) return i;
+  }
+  return -1;
+}
+
+function setStatus(message, isError = false) {
+  $('save-status').textContent = message;
+  $('save-status').style.color = isError ? '#9c3026' : '#50687b';
+}
+
+function showProgress() {
+  const total = session.pairs.length;
+  const done = session.pairs.filter(pair => session.ratings[pair.pair_id]).length;
+  $('progress-text').textContent = `${done.toLocaleString()} of ${total.toLocaleString()} pairs saved`;
+  $('progress-fill').style.width = total ? `${100 * done / total}%` : '100%';
+  $('export-own').disabled = !(total && done === total) || saving;
+  $('all-done').hidden = done !== total || total === 0;
+  $('review-content').hidden = !total;
+  if (!total && session.role === 'adjudication') {
+    $('all-done').hidden = false;
+    $('all-done').querySelector('h3').textContent = session.independent_complete
+      ? 'No disagreements require adjudication' : 'Adjudication is not open yet';
+    $('all-done').querySelector('p').textContent = session.independent_complete
+      ? 'The independent grades agree on every pair.'
+      : 'This list opens when both independent experts have completed ratings.';
+  }
+}
+
+function draftKey(pair) { return `cad-review-draft:${session.role}:${pair.pair_id}`; }
+
+function renderPair() {
+  if (!session?.pairs.length) return;
+  index = Math.max(0, Math.min(index, session.pairs.length - 1));
+  const pair = session.pairs[index];
+  const current = session.ratings[pair.pair_id];
+  editMode = false;
+  localStorage.setItem(`cad-review-position:${session.role}`, String(index));
+  const queryNumber = session.pairs.findIndex(p => p.query_id === pair.query_id) + 1;
+  $('query-count').textContent = `· query ${queryNumber}`;
+  $('review-title').textContent = `Pair ${index + 1} of ${session.pairs.length}`;
+  showImages(pair);
+  $('evidence').value = current?.evidence ?? localStorage.getItem(draftKey(pair)) ?? '';
+  $('evidence').disabled = Boolean(current);
+  $('edit-rating').hidden = !current || session.locked;
+  $('prior-ratings').hidden = session.role !== 'adjudication';
+  if (session.role === 'adjudication') {
+    const [a, b] = session.comparison[pair.pair_id];
+    $('prior-ratings').textContent = `Independent grades: expert A = ${a}; expert B = ${b}. Record the adjudicated grade below.`;
+  }
+  $('grade-options').replaceChildren();
+  for (const [grade, description] of Object.entries(session.rubric)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'grade-button' + (current?.grade === Number(grade) ? ' selected' : '') + (current ? ' locked' : '');
+    button.disabled = session.locked || Boolean(current) || saving || !imagesReady();
+    button.innerHTML = `<span class="grade-number">${grade}</span><span></span>`;
+    button.lastElementChild.textContent = description;
+    button.addEventListener('click', () => submitGrade(Number(grade)));
+    $('grade-options').append(button);
+  }
+  $('previous').disabled = saving || index === 0;
+  $('next-unrated').disabled = saving || nextUnratedAfter(index) < 0;
+  showProgress();
+}
+
+async function submitGrade(grade) {
+  if (saving || !session?.pairs.length) return;
+  if (!imagesReady()) { setStatus('Wait for both CAD views to load before grading.', true); return; }
+  const pair = session.pairs[index];
+  const old = session.ratings[pair.pair_id];
+  if (old && !editMode) return;
+  saving = true;
+  setStatus('Saving…');
+  for (const button of $('grade-options').children) button.disabled = true;
+  $('previous').disabled = $('next-unrated').disabled = true;
+  try {
+    const result = await api('/api/grade', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pair_id: pair.pair_id, grade,
+        evidence: $('evidence').value.trim(), expected_version: old?.version || 0 }),
+    });
+    session.ratings[pair.pair_id] = result.saved;
+    localStorage.removeItem(draftKey(pair));
+    setStatus('Saved on server');
+    const next = firstUnrated(index + 1);
+    if (next >= 0) index = next;
+    renderPair();
+  } catch (failure) {
+    setStatus(failure.message, true);
+    if (/another session|Independent ratings are closed/.test(failure.message)) {
+      await openSession();
+    } else {
+      for (const button of $('grade-options').children) button.disabled = false;
+      $('previous').disabled = index === 0;
+      $('next-unrated').disabled = nextUnratedAfter(index) < 0;
+    }
+  } finally {
+    saving = false;
+    refreshGradeButtons();
+    $('previous').disabled = index === 0;
+    $('next-unrated').disabled = nextUnratedAfter(index) < 0;
+    showProgress();
+  }
+}
+
+async function download(role) {
+  try {
+    error('');
+    const response = await fetch(`/api/export?role=${encodeURIComponent(role)}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    if (!response.ok) throw new Error((await response.json()).error || 'Export failed');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url; link.download = `${role}.csv`; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  } catch (failure) { error(failure.message); }
+}
+
+async function openSession() {
+  try {
+    error('');
+    const loaded = await api('/api/session');
+    session = loaded;
+    $('login').hidden = true;
+    if (loaded.role === 'export') {
+      $('review').hidden = true;
+      $('admin').hidden = false;
+      $('admin-status').textContent = `Expert A: ${loaded.completed_a}/${loaded.total}; expert B: ${loaded.completed_b}/${loaded.total}; disagreements: ${loaded.disagreements}; adjudicated: ${loaded.adjudicated}.`;
+      return;
+    }
+    $('admin').hidden = true;
+    $('review').hidden = false;
+    $('role-label').textContent = roleName(loaded.role);
+    const remembered = Number(localStorage.getItem(`cad-review-position:${loaded.role}`));
+    const next = firstUnrated(Number.isInteger(remembered) && remembered >= 0 ? remembered : 0);
+    index = next >= 0 ? next : (Number.isInteger(remembered) ? remembered : 0);
+    setStatus('All saved');
+    showProgress();
+    renderPair();
+  } catch (failure) {
+    error(failure.message);
+    $('login').hidden = false;
+    $('review').hidden = $('admin').hidden = true;
+  }
+}
+
+function signOut() {
+  token = ''; session = null;
+  sessionStorage.removeItem('cad-review-token');
+  $('access-code').value = '';
+  $('login').hidden = false;
+  $('review').hidden = $('admin').hidden = true;
+  error('');
+}
+
+$('login-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  token = $('access-code').value.trim();
+  sessionStorage.setItem('cad-review-token', token);
+  await openSession();
+});
+$('sign-out').addEventListener('click', signOut);
+$('admin-sign-out').addEventListener('click', signOut);
+$('previous').addEventListener('click', () => { if (!saving && index > 0) { index--; renderPair(); } });
+$('next-unrated').addEventListener('click', () => {
+  const next = nextUnratedAfter(index); if (!saving && next >= 0) { index = next; renderPair(); }
+});
+$('edit-rating').addEventListener('click', () => {
+  if (!window.confirm('Revise this saved grade? The earlier value will be replaced and the change versioned.')) return;
+  editMode = true;
+  $('evidence').disabled = false;
+  refreshGradeButtons();
+  setStatus('Editing saved rating');
+});
+$('evidence').addEventListener('input', () => {
+  if (session?.pairs.length && !session.ratings[session.pairs[index].pair_id])
+    localStorage.setItem(draftKey(session.pairs[index]), $('evidence').value);
+});
+$('export-own').addEventListener('click', () => download(session.role));
+$('alternate-view').addEventListener('click', () => {
+  if (!session?.pairs.length || saving) return;
+  viewSuffix = viewSuffix ? '' : '_B';
+  showImages(session.pairs[index]);
+});
+for (const button of document.querySelectorAll('[data-export]'))
+  button.addEventListener('click', () => download(button.dataset.export));
+for (const id of ['query-image', 'candidate-image']) {
+  $(id).addEventListener('click', () => { $('zoom-image').src = $(id).src; $('zoom-dialog').showModal(); });
+  $(id).addEventListener('load', () => {
+    imagesLoaded[id] = true;
+    refreshGradeButtons();
+  });
+  $(id).addEventListener('error', () => {
+    imagesLoaded[id] = false;
+    $('image-error').hidden = false;
+    for (const button of $('grade-options').children) button.disabled = true;
+  });
+}
+$('close-zoom').addEventListener('click', () => $('zoom-dialog').close());
+document.addEventListener('keydown', event => {
+  if (!session || session.role === 'export' || $('zoom-dialog').open) return;
+  if (['TEXTAREA', 'INPUT'].includes(document.activeElement?.tagName)) return;
+  if (event.key >= '0' && event.key <= '3') submitGrade(Number(event.key));
+  if (event.key === 'ArrowLeft' && index > 0 && !saving) { index--; renderPair(); }
+  if (event.key === 'ArrowRight' && !saving) {
+    const next = nextUnratedAfter(index); if (next >= 0) { index = next; renderPair(); }
+  }
+});
+if (token) openSession();
