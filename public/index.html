@@ -4,73 +4,92 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>CAD expert review</title>
+  <meta name="theme-color" content="#101e29">
+  <title>Expert review · CAD Atlas</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <div class="mark" aria-hidden="true">◈</div>
-      <div><p class="eyebrow">JEV · MECHANICAL CAD STUDY</p><h1>Expert relevance review</h1></div>
-      <span class="header-note">Blinded, paired CAD assessment</span>
+      <div class="brand" aria-label="CAD Atlas expert review">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div><p class="brand-name">CAD <span>ATLAS</span></p><p class="brand-subtitle">EXPERT REVIEW WORKSPACE</p></div>
+      </div>
+      <div class="header-meta"><span class="status-dot" aria-hidden="true"></span> Blinded assessment <span class="header-divider"></span> JEV study</div>
     </div>
   </header>
+
   <main>
-    <section id="login" class="login-card">
-      <p class="step">Secure review access</p>
-      <h2>Continue your assessment</h2>
-      <p>Enter the access code assigned to you. Your ratings are saved after each selection and can be resumed from any device.</p>
-      <form id="login-form">
-        <label for="access-code">Access code</label>
-        <div class="login-row"><input id="access-code" type="password" autocomplete="off" required><button type="submit" class="primary">Open review</button></div>
-      </form>
-      <p class="privacy-note">Part classes, filenames, model predictions, and similarity scores are hidden during grading.</p>
+    <section id="login" class="login-layout">
+      <div class="login-intro">
+        <p class="eyebrow light">ENGINEERING RELEVANCE STUDY <span class="eyebrow-line"></span> 01 / 03</p>
+        <h1>Thoughtful review starts with a clearer view.</h1>
+        <p class="intro-copy">Compare real CAD geometry, assess mechanical relevance, and record your expert judgment. Your progress is saved after each rating.</p>
+        <div class="intro-steps" aria-label="Review workflow">
+          <div><span>01</span><p><strong>Inspect</strong><small>Examine both CAD views</small></p></div>
+          <div><span>02</span><p><strong>Assess</strong><small>Consider form and function</small></p></div>
+          <div><span>03</span><p><strong>Record</strong><small>Save your 0–3 rating</small></p></div>
+        </div>
+        <div class="hero-ornament" aria-hidden="true"><i></i><i></i><i></i></div>
+      </div>
+      <div class="login-card">
+        <div class="card-icon" aria-hidden="true">↗</div>
+        <p class="eyebrow">SECURE REVIEW ACCESS</p>
+        <h2>Continue your assessment</h2>
+        <p>Enter the access code assigned by your study coordinator. Your saved ratings will be ready where you left off.</p>
+        <form id="login-form">
+          <label for="access-code">Access code</label>
+          <input id="access-code" type="password" autocomplete="off" spellcheck="false" required placeholder="Enter your access code">
+          <button type="submit" class="primary login-submit">Open review <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="privacy-note"><span aria-hidden="true">◇</span><p>Part classes, source filenames, model predictions, and similarity scores stay hidden throughout grading.</p></div>
+      </div>
     </section>
 
     <section id="review" hidden>
       <div class="review-top">
-        <div><p id="role-label" class="eyebrow"></p><h2 id="review-title">Compare the two parts</h2></div>
-        <button id="sign-out" class="quiet">Leave review</button>
+        <div><p id="role-label" class="eyebrow"></p><h1>Compare the parts<span class="title-period">.</span></h1><p class="review-subtitle">Study each shape from both angles before recording a rating.</p></div>
+        <button id="sign-out" class="quiet">Leave review <span aria-hidden="true">↗</span></button>
       </div>
       <div class="progress-box">
-        <div class="progress-head"><strong id="progress-text"></strong><span id="save-status" role="status" aria-live="polite">All saved</span></div>
-        <div class="progress-track"><div id="progress-fill"></div></div>
+        <div class="progress-summary"><div><p class="mini-label">YOUR PROGRESS</p><strong id="progress-text"></strong></div><span id="progress-percent" class="progress-percent">0%</span></div>
+        <div class="progress-detail"><div class="progress-track" role="progressbar" aria-label="Review progress" aria-valuemin="0" aria-valuemax="100"><div id="progress-fill"></div></div><span id="save-status" role="status" aria-live="polite"><span class="status-dot" aria-hidden="true"></span> All saved</span></div>
       </div>
       <div id="review-content">
-        <div class="instruction">
-          <strong>Question</strong> Could the candidate be useful in place of, or closely related to, the query part? Judge geometry, interfaces, and mechanical role together. The score describes this pair, not its source-category match.
-        </div>
+        <div class="workspace-heading"><div><p class="eyebrow">CURRENT COMPARISON</p><h2 id="review-title">Pair 1</h2></div><div class="pair-counter" id="pair-index"></div></div>
+        <div class="instruction"><div class="instruction-icon" aria-hidden="true">?</div><p><strong>The question</strong>Could the candidate be useful in place of, or closely related to, the query part? Consider geometry, interfaces, and mechanical role together. Rate this pair, regardless of its source category.</p></div>
         <div class="parts">
-          <figure><div class="image-frame"><img id="query-image" alt="Rendered query CAD part"></div><figcaption>Query part <span id="query-count"></span></figcaption></figure>
+          <figure><div class="figure-heading"><span class="part-label">01 / REFERENCE</span><strong>Query part</strong></div><div class="image-frame"><img id="query-image" alt="Rendered query CAD part" title="Click to enlarge"></div><figcaption><span id="query-count"></span><span>Click image to enlarge <span aria-hidden="true">↗</span></span></figcaption></figure>
           <div class="compare-symbol" aria-hidden="true">↔</div>
-          <figure><div class="image-frame"><img id="candidate-image" alt="Rendered candidate CAD part"></div><figcaption>Candidate part</figcaption></figure>
+          <figure><div class="figure-heading"><span class="part-label">02 / COMPARISON</span><strong>Candidate part</strong></div><div class="image-frame"><img id="candidate-image" alt="Rendered candidate CAD part" title="Click to enlarge"></div><figcaption><span>Compare geometry and role</span><span>Click image to enlarge <span aria-hidden="true">↗</span></span></figcaption></figure>
         </div>
-        <div class="view-controls"><button id="alternate-view" class="secondary">Show alternate view</button><span>Both views are rendered from the original STEP geometry.</span></div>
+        <div class="view-controls"><div class="view-switch" role="group" aria-label="CAD view angle"><button id="view-primary" class="view-button active" type="button" aria-pressed="true">View 01</button><button id="alternate-view" class="view-button" type="button" aria-pressed="false">View 02</button></div><span>Both angles come from the original STEP geometry.</span></div>
         <p id="image-error" class="error" hidden>A CAD image is unavailable. Do not grade this pair; contact the study coordinator.</p>
-        <div id="prior-ratings" class="prior-ratings" hidden></div>
-        <fieldset id="grade-fieldset"><legend>Engineering relevance</legend><div id="grade-options" class="grade-grid"></div></fieldset>
-        <label class="note-label" for="evidence">Observations or decisive features <span>(optional)</span></label>
-        <textarea id="evidence" rows="2" maxlength="1000" placeholder="For example: bore and mounting interface align, but the outer profile differs."></textarea>
-        <div class="actions">
-          <button id="previous" class="secondary">← Previous</button>
-          <button id="next-unrated" class="secondary">Next unrated →</button>
-          <button id="edit-rating" class="secondary" hidden>Edit saved rating</button>
+        <div class="rating-panel">
+          <div class="rating-heading"><div><p class="eyebrow">YOUR ASSESSMENT</p><h2>Engineering relevance</h2></div><span class="rating-scale">0 <span aria-hidden="true">→</span> 3 SCALE</span></div>
+          <div id="prior-ratings" class="prior-ratings" hidden></div>
+          <fieldset id="grade-fieldset"><legend class="sr-only">Engineering relevance</legend><div id="grade-options" class="grade-grid"></div></fieldset>
+          <p id="grade-hint" class="grade-hint">Select a rating to save this pair and continue automatically.</p>
+          <label class="note-label" for="evidence">Observations or decisive features <span>Optional · up to 1,000 characters</span></label>
+          <textarea id="evidence" rows="3" maxlength="1000" placeholder="For example: similar bore and mounting interface; outer profile differs."></textarea>
+          <div class="actions"><button id="previous" class="secondary" type="button">← Previous pair</button><button id="next-unrated" class="secondary" type="button">Next unrated <span aria-hidden="true">→</span></button><button id="edit-rating" class="secondary" type="button" hidden>Edit saved rating</button></div>
         </div>
-        <p class="keyboard-tip">Use keys 0–3 to grade; left and right arrows move between pairs when the note field is not active.</p>
+        <p class="keyboard-tip"><span aria-hidden="true">⌨</span> Keyboard: 0–3 to rate · ← and → to navigate when the note field is not active.</p>
       </div>
-      <div id="all-done" class="done-card" hidden><h3>All available pairs are rated</h3><p>Your work is saved. You can revisit pairs or export a complete review file.</p></div>
-      <div class="export-box"><span>Export becomes available when the review is complete.</span><button id="export-own" class="secondary" disabled>Download annotation CSV</button></div>
+      <div id="all-done" class="done-card" hidden><div class="done-icon" aria-hidden="true">✓</div><div><h3>All available pairs are rated</h3><p>Your work is saved. You can revisit pairs or export a complete review file.</p></div></div>
+      <div class="export-box"><div><strong>Annotation export</strong><span>Available when your review is complete.</span></div><button id="export-own" class="secondary" type="button" disabled>Download annotation CSV <span aria-hidden="true">↓</span></button></div>
     </section>
 
-    <section id="admin" class="login-card" hidden>
-      <p class="eyebrow">Study export</p><h2>Annotation status</h2><p id="admin-status"></p>
-      <div class="admin-actions"><button data-export="rater_a">Rater A CSV</button><button data-export="rater_b">Rater B CSV</button><button data-export="adjudication">Adjudication CSV</button></div>
-      <p>Exports retain the frozen pair order and the exact columns expected by the study finalizer.</p>
-      <button id="admin-sign-out" class="quiet">Leave</button>
+    <section id="admin" class="admin-card" hidden>
+      <p class="eyebrow">STUDY EXPORT</p><h1>Annotation status<span class="title-period">.</span></h1><p id="admin-status"></p>
+      <div class="admin-actions"><button data-export="rater_a">Rater A CSV ↓</button><button data-export="rater_b">Rater B CSV ↓</button><button data-export="adjudication">Adjudication CSV ↓</button></div>
+      <p>Exports retain the frozen pair order and exact columns expected by the study finalizer.</p>
+      <button id="admin-sign-out" class="quiet">Leave review ↗</button>
     </section>
     <p id="global-error" class="error" role="alert" hidden></p>
   </main>
-  <dialog id="zoom-dialog"><button id="close-zoom" class="zoom-close" aria-label="Close enlarged image">×</button><img id="zoom-image" alt="Enlarged CAD rendering"></dialog>
+  <dialog id="zoom-dialog" aria-label="Enlarged CAD rendering"><button id="close-zoom" class="zoom-close" aria-label="Close enlarged image">×</button><img id="zoom-image" alt="Enlarged CAD rendering"></dialog>
 </body>
 </html>

@@ -21,7 +21,10 @@ function showImages(pair) {
   $('image-error').hidden = true;
   $('query-image').src = `/renders/${pair.query_id}${viewSuffix}.webp`;
   $('candidate-image').src = `/renders/${pair.candidate_id}${viewSuffix}.webp`;
-  $('alternate-view').textContent = viewSuffix ? 'Show first view' : 'Show alternate view';
+  $('view-primary').classList.toggle('active', !viewSuffix);
+  $('alternate-view').classList.toggle('active', Boolean(viewSuffix));
+  $('view-primary').setAttribute('aria-pressed', String(!viewSuffix));
+  $('alternate-view').setAttribute('aria-pressed', String(Boolean(viewSuffix)));
   for (const button of $('grade-options').children) button.disabled = true;
 }
 
@@ -48,6 +51,7 @@ function roleName(role) {
 
 function firstUnrated(start = 0) {
   if (!session?.pairs.length) return -1;
+  start = ((start % session.pairs.length) + session.pairs.length) % session.pairs.length;
   for (let offset = 0; offset < session.pairs.length; offset++) {
     const i = (start + offset) % session.pairs.length;
     if (!session.ratings[session.pairs[i].pair_id]) return i;
@@ -66,14 +70,17 @@ function nextUnratedAfter(current) {
 
 function setStatus(message, isError = false) {
   $('save-status').textContent = message;
-  $('save-status').style.color = isError ? '#9c3026' : '#50687b';
+  $('save-status').style.color = isError ? '#9a3c29' : '#4e7e71';
 }
 
 function showProgress() {
   const total = session.pairs.length;
   const done = session.pairs.filter(pair => session.ratings[pair.pair_id]).length;
   $('progress-text').textContent = `${done.toLocaleString()} of ${total.toLocaleString()} pairs saved`;
-  $('progress-fill').style.width = total ? `${100 * done / total}%` : '100%';
+  const percent = total ? (done === total ? 100 : Math.min(99, Math.round(100 * done / total))) : 0;
+  $('progress-percent').textContent = `${percent}%`;
+  $('progress-fill').style.width = `${percent}%`;
+  $('progress-fill').parentElement.setAttribute('aria-valuenow', String(percent));
   $('export-own').disabled = !(total && done === total) || saving;
   $('all-done').hidden = done !== total || total === 0;
   $('review-content').hidden = !total;
@@ -99,10 +106,14 @@ function renderPair() {
   const queryNumber = session.pairs.findIndex(p => p.query_id === pair.query_id) + 1;
   $('query-count').textContent = `· query ${queryNumber}`;
   $('review-title').textContent = `Pair ${index + 1} of ${session.pairs.length}`;
+  $('pair-index').textContent = `PAIR ${String(index + 1).padStart(4, '0')}`;
   showImages(pair);
   $('evidence').value = current?.evidence ?? localStorage.getItem(draftKey(pair)) ?? '';
   $('evidence').disabled = Boolean(current);
   $('edit-rating').hidden = !current || session.locked;
+  $('grade-hint').textContent = current
+    ? 'This rating is saved. Choose “Edit saved rating” to revise it.'
+    : 'Select a rating to save this pair and continue automatically.';
   $('prior-ratings').hidden = session.role !== 'adjudication';
   if (session.role === 'adjudication') {
     const [a, b] = session.comparison[pair.pair_id];
@@ -113,6 +124,7 @@ function renderPair() {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'grade-button' + (current?.grade === Number(grade) ? ' selected' : '') + (current ? ' locked' : '');
+    button.setAttribute('aria-pressed', String(current?.grade === Number(grade)));
     button.disabled = session.locked || Boolean(current) || saving || !imagesReady();
     button.innerHTML = `<span class="grade-number">${grade}</span><span></span>`;
     button.lastElementChild.textContent = description;
@@ -240,13 +252,22 @@ $('evidence').addEventListener('input', () => {
 $('export-own').addEventListener('click', () => download(session.role));
 $('alternate-view').addEventListener('click', () => {
   if (!session?.pairs.length || saving) return;
-  viewSuffix = viewSuffix ? '' : '_B';
+  viewSuffix = '_B';
+  showImages(session.pairs[index]);
+});
+$('view-primary').addEventListener('click', () => {
+  if (!session?.pairs.length || saving) return;
+  viewSuffix = '';
   showImages(session.pairs[index]);
 });
 for (const button of document.querySelectorAll('[data-export]'))
   button.addEventListener('click', () => download(button.dataset.export));
 for (const id of ['query-image', 'candidate-image']) {
+  $(id).tabIndex = 0;
   $(id).addEventListener('click', () => { $('zoom-image').src = $(id).src; $('zoom-dialog').showModal(); });
+  $(id).addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); $(id).click(); }
+  });
   $(id).addEventListener('load', () => {
     imagesLoaded[id] = true;
     refreshGradeButtons();
