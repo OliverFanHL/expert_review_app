@@ -97,6 +97,12 @@ The application needs a provisioned database and access tokens before it can
 save real assessments. There is no local-file or browser-only fallback in
 production, since those would not reliably preserve independent ratings.
 
+The home page also offers **Skip login · Try guest review**. Guest review uses
+12 sample comparisons and saves ratings only in that browser. It does not
+write to Postgres or count toward the study. After rating all 12 pairs, a guest
+can download a CSV copy. Formal reviewers still need their assigned access
+code to save study ratings on the server.
+
 ## Export and evaluate
 
 When each independent rater has graded all pairs, download `rater_a.csv` and

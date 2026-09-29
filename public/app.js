@@ -5,7 +5,19 @@ let index = 0;
 let saving = false;
 let editMode = false;
 let viewSuffix = '';
+let guestMode = false;
+let sessionAttempt = 0;
 const imagesLoaded = { 'query-image': false, 'candidate-image': false };
+
+function guestStorageKey() { return `cad-review-guest:${session.protocol_hash}`; }
+
+function saveGuestRating(pair, grade, evidence) {
+  const rating = { grade, evidence, version: (session.ratings[pair.pair_id]?.version || 0) + 1 };
+  const next = { ...session.ratings, [pair.pair_id]: rating };
+  localStorage.setItem(guestStorageKey(), JSON.stringify(next));
+  session.ratings = next;
+  return rating;
+}
 
 function imagesReady() { return imagesLoaded['query-image'] && imagesLoaded['candidate-image']; }
 
@@ -76,7 +88,7 @@ function setStatus(message, isError = false) {
 function showProgress() {
   const total = session.pairs.length;
   const done = session.pairs.filter(pair => session.ratings[pair.pair_id]).length;
-  $('progress-text').textContent = `${done.toLocaleString()} of ${total.toLocaleString()} pairs saved`;
+  $('progress-text').textContent = `${done.toLocaleString()} of ${total.toLocaleString()} pairs ${guestMode ? 'saved here' : 'saved'}`;
   const percent = total ? (done === total ? 100 : Math.min(99, Math.round(100 * done / total))) : 0;
   $('progress-percent').textContent = `${percent}%`;
   $('progress-fill').style.width = `${percent}%`;
@@ -112,8 +124,8 @@ function renderPair() {
   $('evidence').disabled = Boolean(current);
   $('edit-rating').hidden = !current || session.locked;
   $('grade-hint').textContent = current
-    ? 'This rating is saved. Choose “Edit saved rating” to revise it.'
-    : 'Select a rating to save this pair and continue automatically.';
+    ? `This rating is saved${guestMode ? ' in this browser' : ''}. Choose “Edit saved rating” to revise it.`
+    : `Select a rating to save ${guestMode ? 'in this browser' : 'this pair'} and continue automatically.`;
   $('prior-ratings').hidden = session.role !== 'adjudication';
   if (session.role === 'adjudication') {
     const [a, b] = session.comparison[pair.pair_id];
@@ -147,14 +159,18 @@ async function submitGrade(grade) {
   for (const button of $('grade-options').children) button.disabled = true;
   $('previous').disabled = $('next-unrated').disabled = true;
   try {
-    const result = await api('/api/grade', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pair_id: pair.pair_id, grade,
-        evidence: $('evidence').value.trim(), expected_version: old?.version || 0 }),
-    });
-    session.ratings[pair.pair_id] = result.saved;
+    if (guestMode) {
+      saveGuestRating(pair, grade, $('evidence').value.trim());
+    } else {
+      const result = await api('/api/grade', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pair_id: pair.pair_id, grade,
+          evidence: $('evidence').value.trim(), expected_version: old?.version || 0 }),
+      });
+      session.ratings[pair.pair_id] = result.saved;
+    }
     localStorage.removeItem(draftKey(pair));
-    setStatus('Saved on server');
+    setStatus(guestMode ? 'Saved in this browser' : 'Saved on server');
     const next = firstUnrated(index + 1);
     if (next >= 0) index = next;
     renderPair();
@@ -179,22 +195,42 @@ async function submitGrade(grade) {
 async function download(role) {
   try {
     error('');
-    const response = await fetch(`/api/export?role=${encodeURIComponent(role)}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-    if (!response.ok) throw new Error((await response.json()).error || 'Export failed');
-    const url = URL.createObjectURL(await response.blob());
+    let blob;
+    if (guestMode) {
+      const cell = value => {
+        const text = String(value ?? '');
+        return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+      };
+      const lines = ['pair_id,query_asset,candidate_asset,grade,evidence'];
+      for (const pair of session.pairs) {
+        const rating = session.ratings[pair.pair_id];
+        lines.push([pair.pair_id, `${pair.query_id}.stp`, `${pair.candidate_id}.stp`,
+          rating?.grade ?? '', rating?.evidence ?? ''].map(cell).join(','));
+      }
+      blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv' });
+    } else {
+      const response = await fetch(`/api/export?role=${encodeURIComponent(role)}`,
+        { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      if (!response.ok) throw new Error((await response.json()).error || 'Export failed');
+      blob = await response.blob();
+    }
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.download = `${role}.csv`; link.click();
+    link.href = url; link.download = `${role === 'guest' ? 'guest-review' : role}.csv`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   } catch (failure) { error(failure.message); }
 }
 
 async function openSession() {
+  const attempt = ++sessionAttempt;
   try {
     error('');
     const loaded = await api('/api/session');
+    if (attempt !== sessionAttempt) return;
     session = loaded;
+    guestMode = false;
     $('login').hidden = true;
+    $('guest-notice').hidden = true;
     if (loaded.role === 'export') {
       $('review').hidden = true;
       $('admin').hidden = false;
@@ -211,18 +247,50 @@ async function openSession() {
     showProgress();
     renderPair();
   } catch (failure) {
+    if (attempt !== sessionAttempt) return;
     error(failure.message);
     $('login').hidden = false;
     $('review').hidden = $('admin').hidden = true;
   }
 }
 
+async function openGuest() {
+  const attempt = ++sessionAttempt;
+  try {
+    error('');
+    const response = await fetch('/guest-sample.json');
+    if (!response.ok) throw new Error('Guest review is unavailable. Please try again later.');
+    const sample = await response.json();
+    if (attempt !== sessionAttempt) return;
+    let ratings = {};
+    try { ratings = JSON.parse(localStorage.getItem(`cad-review-guest:${sample.protocol_hash}`) || '{}'); }
+    catch { ratings = {}; }
+    session = { ...sample, role: 'guest', ratings, comparison: {}, locked: false };
+    guestMode = true;
+    token = '';
+    sessionStorage.removeItem('cad-review-token');
+    $('login').hidden = $('admin').hidden = true;
+    $('review').hidden = false;
+    $('guest-notice').hidden = false;
+    $('role-label').textContent = 'Guest preview · browser only';
+    $('export-own').textContent = 'Download guest CSV ↓';
+    $('all-done').querySelector('p').textContent = 'Your guest ratings are saved in this browser. Download a CSV if you want to keep a copy.';
+    index = Math.max(0, firstUnrated(0));
+    setStatus('Saved in this browser');
+    renderPair();
+  } catch (failure) { if (attempt === sessionAttempt) error(failure.message); }
+}
+
 function signOut() {
-  token = ''; session = null;
+  sessionAttempt++;
+  token = ''; session = null; guestMode = false;
   sessionStorage.removeItem('cad-review-token');
   $('access-code').value = '';
   $('login').hidden = false;
   $('review').hidden = $('admin').hidden = true;
+  $('guest-notice').hidden = true;
+  $('export-own').textContent = 'Download annotation CSV ↓';
+  $('all-done').querySelector('p').textContent = 'Your work is saved. You can revisit pairs or export a complete review file.';
   error('');
 }
 
@@ -232,6 +300,7 @@ $('login-form').addEventListener('submit', async event => {
   sessionStorage.setItem('cad-review-token', token);
   await openSession();
 });
+$('skip-login').addEventListener('click', openGuest);
 $('sign-out').addEventListener('click', signOut);
 $('admin-sign-out').addEventListener('click', signOut);
 $('previous').addEventListener('click', () => { if (!saving && index > 0) { index--; renderPair(); } });

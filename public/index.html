@@ -44,11 +44,17 @@
           <input id="access-code" type="password" autocomplete="off" spellcheck="false" required placeholder="Enter your access code">
           <button type="submit" class="primary login-submit">Open review <span aria-hidden="true">↗</span></button>
         </form>
+        <div class="guest-entry">
+          <span>Want to look around first?</span>
+          <button id="skip-login" type="button" class="guest-button">Skip login · Try guest review <span aria-hidden="true">→</span></button>
+          <small>Guest ratings stay in this browser and are not submitted to the study.</small>
+        </div>
         <div class="privacy-note"><span aria-hidden="true">◇</span><p>Part classes, source filenames, model predictions, and similarity scores stay hidden throughout grading.</p></div>
       </div>
     </section>
 
     <section id="review" hidden>
+      <div id="guest-notice" class="guest-notice" hidden><strong>Guest review</strong><span>Try 12 sample comparisons. Ratings stay on this browser only and do not count toward the study.</span></div>
       <div class="review-top">
         <div><p id="role-label" class="eyebrow"></p><h1>Compare the parts<span class="title-period">.</span></h1><p class="review-subtitle">Study each shape from both angles before recording a rating.</p></div>
         <button id="sign-out" class="quiet">Leave review <span aria-hidden="true">↗</span></button>
