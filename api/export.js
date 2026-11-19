@@ -1,9 +1,21 @@
 import { authenticatedRole, disagreementIds, exportCsv, manifest, roles, sendJson } from '../lib/core.js';
-import { database, ratingsFor } from '../lib/db.js';
+import { database, ratingsFor, reviewRows } from '../lib/db.js';
+import { reviewSnapshot } from '../lib/review-snapshot.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return sendJson(res, 405, { error: 'GET required' });
   const requester = authenticatedRole(req);
+  if (req.query.format === 'json') {
+    if (requester !== 'export') return sendJson(res, 403, { error: 'Manager access required' });
+    try {
+      const rows = await reviewRows(database(), manifest.protocol_hash);
+      res.setHeader('Content-Disposition', 'attachment; filename="reviewer-results.json"');
+      return sendJson(res, 200, reviewSnapshot(manifest, rows));
+    } catch (error) {
+      console.error('Review snapshot failed', error);
+      return sendJson(res, 503, { error: 'Reviewer results are unavailable. Try again in a moment.' });
+    }
+  }
   const role = req.query.role;
   if (!requester || !roles.includes(role) || (requester !== role && requester !== 'export')) {
     return sendJson(res, 403, { error: 'Not authorized for this export' });

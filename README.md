@@ -105,6 +105,26 @@ code to save study ratings on the server.
 
 ## Export and evaluate
 
+Sign in with the manager code (`EXPORT_TOKEN`) and select **Download all
+reviewer results (JSON)** on the **Annotation status** screen. This downloads
+one row per frozen pair, with each role's latest grade, evidence, version and
+update time under `reviews`. A `null` role means no rating was saved for that
+pair. The file includes partial reviews and counts by role. Guest practice
+ratings are stored in the guest's browser.
+
+For a local export, set the production `DATABASE_URL` in a private `.env` file
+in the repository root, then run:
+
+```powershell
+New-Item -ItemType Directory -Force exports | Out-Null
+node --env-file=.env scripts/export-reviews.mjs exports/reviewer-results.json
+```
+
+Join the human export and any automated comparison file on `pair_id` after
+checking that their `protocol_hash` values match. The earlier automated
+silhouette proxy measures visual overlap. Its grades should stay separate from
+expert judgments of engineering relevance.
+
 When each independent rater has graded all pairs, download `rater_a.csv` and
 `rater_b.csv`. Once both are complete, the adjudicator grades every
 disagreement and exports `adjudication.csv`; agreement rows remain blank in

@@ -209,14 +209,17 @@ async function download(role) {
       }
       blob = new Blob([lines.join('\r\n') + '\r\n'], { type: 'text/csv' });
     } else {
-      const response = await fetch(`/api/export?role=${encodeURIComponent(role)}`,
+      const path = role === 'all-json' ? '/api/export?format=json' : `/api/export?role=${encodeURIComponent(role)}`;
+      const response = await fetch(path,
         { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
       if (!response.ok) throw new Error((await response.json()).error || 'Export failed');
       blob = await response.blob();
     }
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.download = `${role === 'guest' ? 'guest-review' : role}.csv`; link.click();
+    link.href = url;
+    link.download = role === 'all-json' ? 'reviewer-results.json' : `${role === 'guest' ? 'guest-review' : role}.csv`;
+    link.click();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   } catch (failure) { error(failure.message); }
 }
@@ -319,6 +322,7 @@ $('evidence').addEventListener('input', () => {
     localStorage.setItem(draftKey(session.pairs[index]), $('evidence').value);
 });
 $('export-own').addEventListener('click', () => download(session.role));
+$('export-json').addEventListener('click', () => download('all-json'));
 $('alternate-view').addEventListener('click', () => {
   if (!session?.pairs.length || saving) return;
   viewSuffix = '_B';
